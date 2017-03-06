@@ -30,7 +30,9 @@ for explanations and potential fixes.
 
 Usage:
 -----
-.. code-block:: python
+
+.. code:: python
+
     import uvclite
 
     capturing = True
