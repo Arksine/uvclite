@@ -21,7 +21,7 @@ libuvc
     make && sudo make install
     sudo ldconfig
 
-NOTE: the current version of libuvc has a bug that can potentially
+NOTE: the current version of libuvc has a bug that can potentially cause a
 hang when streaming is stopped.  See `Issue 16`_ and `Pull Request 59`_ 
 for explanations and potential fixes. 
 
@@ -30,8 +30,7 @@ for explanations and potential fixes.
 
 Usage:
 -----
-::
-.. code:: python
+.. code-block:: python
     import uvclite
 
     capturing = True
