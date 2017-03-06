@@ -28,6 +28,14 @@ for explanations and potential fixes.
 .. _Issue 16: https://github.com/ktossell/libuvc/issues/16#issuecomment-101653441
 .. _Pull Request 59: https://github.com/ktossell/libuvc/pull/59
 
+Installation:
+-------------
+Temporary until published on PyPI
+::
+    git clone https://github.com/arksine/uvclite
+    cd uvclite
+    python setup.py install
+
 Usage:
 -----
 
@@ -53,9 +61,9 @@ Usage:
 The examples in this reposity demonstrate basic usage of a UVC Camera
 capturing MJPEG frames at 640x480 30fps and displaying them on a flask
 server.  These examples require that Flask be installed.  The server
-code is credit to Miguel Grinberg (see `MJPEG Video Streamer`_)
+code is credit to Miguel Grinberg (see `Flask Video Streamer`_)
 
-.. _MJPEG Video Streamer: https://github.com/miguelgrinberg/flask-video-streaming
+.. _Flask Video Streamer: https://github.com/miguelgrinberg/flask-video-streaming
 
 License
 -------

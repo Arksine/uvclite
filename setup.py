@@ -5,6 +5,13 @@
 from setuptools import setup, find_packages
 from codecs import open
 from os import path
+import sys
+
+# Python versions less than 3.4 require enum34 backport
+if sys.version_info[0] == 2 or sys.version_info[1] < 4:
+    requirements = ['enum34',]
+else:
+    requirements = []
 
 here = path.abspath(path.dirname(__file__))
 
@@ -35,7 +42,5 @@ setup(
     packages=find_packages(exclude=['examples']),
 
     # Python < 3.4 requires Enum backport
-    install_requires=[
-        'enum34',
-    ]
+    install_requires=requirements
 )
