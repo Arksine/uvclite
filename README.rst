@@ -30,6 +30,7 @@ for explanations and potential fixes.
 
 Usage:
 -----
+::
 .. code:: python
     import uvclite
 
@@ -55,6 +56,8 @@ code is credit to Miguel Grinberg (see `MJPEG Video Streamer`_)
 
 .. _MJPEG Video Streamer: https://github.com/miguelgrinberg/flask-video-streaming)
 
+License
+-------
 Copyright 2017 Eric Callahan
 
 Licensed under the Apache License, Version 2.0 (the "License");
