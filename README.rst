@@ -2,7 +2,7 @@ UVCLite - A ctypes python wrapper around libuvc
 ===============================================
 
 This library implements a simple ctypes wrapper around libuvc.  It
-excludes support for conversion or decompression, if you are looking
+excludes support for conversion and decompression, if you are looking
 for this functionality see pyuvc by Pupil Labs.  The primary use
 case for this library is to capture frames from a UVC device and
 redirect them somewhere else.  Currently only linux is supported.
@@ -55,7 +55,7 @@ capturing MJPEG frames at 640x480 30fps and displaying them on a flask
 server.  These examples require that Flask be installed.  The server
 code is credit to Miguel Grinberg (see `MJPEG Video Streamer`_)
 
-.. _MJPEG Video Streamer: https://github.com/miguelgrinberg/flask-video-streaming)
+.. _MJPEG Video Streamer: https://github.com/miguelgrinberg/flask-video-streaming
 
 License
 -------
