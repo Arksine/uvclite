@@ -113,6 +113,9 @@ class UVCDevice(object):
         request a new device from either find_device() or
         get_device_list() in the UVCContext class.
         """
+        if self._stream_handle_p:
+            self.stop_streaming()
+
         if self._dev_desc_p:
             libuvc.uvc_free_device_descriptor(self._dev_desc_p)
 
