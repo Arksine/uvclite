@@ -21,6 +21,7 @@
 from ctypes import byref, POINTER, c_void_p
 import sys
 from . import libuvc
+from .standard_control_units import standard_ctrl_units
 if sys.version[0] == 2:
     from builtins import range
 
@@ -75,6 +76,18 @@ class UVCFrame(object):
         self.data = libuvc.buffer_at(self.frame.data, self.size)
 
 
+def uint_array_to_GuidCode(u):
+    print("u = {}".format(u))
+    for i in u:
+        print(i)
+    s = ''
+    for x in range(16):
+        s += "{0:0{1}x}".format(u[x],2) # map int to rwo digit hex without "0x" prefix.
+    print("s = {}".format(s))
+    return '%s%s%s%s%s%s%s%s-%s%s%s%s-%s%s%s%s-%s%s%s%s-%s%s%s%s%s%s%s%s%s%s%s%s'%tuple(s)
+
+
+
 class UVCDevice(object):
     """
     Represents a UVC device.  To make things less complex
@@ -93,6 +106,7 @@ class UVCDevice(object):
         self._format_set = False
         self._frame_callback = libuvc.uvc_null_frame_callback
         self._user_id = None
+        self.controls = {}
 
     def open(self):
         """
@@ -104,7 +118,70 @@ class UVCDevice(object):
 
             ret = libuvc.uvc_open(self._device_p, byref(self._handle_p))
             _check_error(ret)
+            self._enumerate_controls()
             self._is_open = True
+
+    def _enumerate_controls(self):
+        """
+        Build out the self.controls list containing all control objects for this camera
+        """
+
+        input_terminal = libuvc.uvc_get_input_terminals(self._handle_p)
+        # cdef uvc.uvc_output_terminal_t  *output_terminal = uvc.uvc_get_output_terminals(self._handle_p)
+        processing_unit =  libuvc.uvc_get_processing_units(self._handle_p)
+        extension_unit = libuvc.uvc_get_extension_units(self._handle_p)
+        
+
+        available_controls_per_unit = {}
+        id_per_unit = {}
+        extension_units = {}
+        while extension_unit:
+            guidExtensionCode = uint_array_to_GuidCode(extension_unit.contents.guidExtensionCode)
+            print("guidExtensionCode = {}".format(guidExtensionCode))
+            id_per_unit[guidExtensionCode] = extension_unit.contents.bUnitId
+            available_controls_per_unit[guidExtensionCode] = extension_unit.contents.bmControls
+            extension_unit = extension_unit.contents.next
+
+        while input_terminal:
+            available_controls_per_unit['input_terminal'] = input_terminal.contents.bmControls
+            id_per_unit['input_terminal'] = input_terminal.contents.bTerminalId
+            input_terminal = input_terminal.contents.next
+
+        while processing_unit:
+            available_controls_per_unit['processing_unit'] = processing_unit.contents.bmControls
+            id_per_unit['processing_unit'] = processing_unit.contents.bUnitId
+            processing_unit = processing_unit.contents.next
+
+        for std_ctl in standard_ctrl_units:
+            if std_ctl['bit_mask'] & available_controls_per_unit[std_ctl['unit']]:
+                print('Adding "%s" control.'%std_ctl['display_name'])
+                std_ctl['unit_id'] = id_per_unit[std_ctl['unit']]
+                try:
+                    control = libuvc.Control(self._handle_p, **std_ctl)
+                except Exception as e:
+                    print("Could not init '%s'! Error: %s" %(std_ctl['display_name'],e))
+                    raise
+                else:
+                    self.controls[control.display_name] = control
+
+    def print_controls(self):
+        for c in self.controls.values():
+            print(c)
+
+    def set_control_defaults(self):
+        """
+        Set all controls to default values
+        """
+        for control in self.controls:
+            control.value = control.def_val
+   
+    def set_control(self, ctrl_name, value):
+        control = self.controls[ctrl_name]
+        control.value = value
+
+    def get_control(self, ctrl_name):
+        control = self.controls[ctrl_name]
+        return control.value
 
     def close(self):
         """
