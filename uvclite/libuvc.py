@@ -86,24 +86,6 @@ def buffer_at(address, length):
     """
     return bytearray((c_char * length).from_address(address))
 
-
-#/** Converts an unaligned four-byte little-endian integer into an int32 */
-def DW_TO_INT(p):
-    return p[0] | (p[1] << 8) | (p[2] << 16) | (p[3] << 24)
-#/** Converts an unaligned two-byte little-endian integer into an int16 */
-def SW_TO_SHORT(p):
-    return p[0] | (p[1] << 8)
-#/** Converts an int16 into an unaligned two-byte little-endian integer */
-def SHORT_TO_SW(s, p):
-    p[0] = s
-    p[1] = s >> 8
-#/** Converts an int32 into an unaligned four-byte little-endian integer */
-def INT_TO_DW(i, p):
-    p[0] = i
-    p[1] = i >> 8
-    p[2] = i >> 16
-    p[3] = i >> 24
-
 # libuvc.h
 
 # enum uvc_error (uvc_error_t) return codes
@@ -746,8 +728,6 @@ class Control:
         self.max_val = max_val if max_val != None else self._uvc_get(uvc_req_code["UVC_GET_MAX"].value)
         if self.min_val > self.max_val:
             print("WARNING! min > max")
-            # TODO: This is a terrible hack that works for my particular camera. Need to
-            # figure out WTF is going on with signed, negative integers
             self.min_val = -1*self.max_val
         self.step    = step    if step    != None else self._uvc_get(uvc_req_code["UVC_GET_RES"].value)
         self.def_val = def_val if def_val != None else self._uvc_get(uvc_req_code["UVC_GET_DEF"].value)
