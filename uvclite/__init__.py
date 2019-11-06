@@ -172,7 +172,7 @@ class UVCDevice(object):
         """
         Set all controls to default values
         """
-        for control in self.controls:
+        for control in self.controls.values():
             control.value = control.def_val
    
     def set_control(self, ctrl_name, value):
