@@ -77,15 +77,10 @@ class UVCFrame(object):
 
 
 def uint_array_to_GuidCode(u):
-    print("u = {}".format(u))
-    for i in u:
-        print(i)
     s = ''
     for x in range(16):
         s += "{0:0{1}x}".format(u[x],2) # map int to rwo digit hex without "0x" prefix.
-    print("s = {}".format(s))
     return '%s%s%s%s%s%s%s%s-%s%s%s%s-%s%s%s%s-%s%s%s%s-%s%s%s%s%s%s%s%s%s%s%s%s'%tuple(s)
-
 
 
 class UVCDevice(object):
@@ -176,6 +171,10 @@ class UVCDevice(object):
             control.value = control.def_val
    
     def set_control(self, ctrl_name, value):
+        # TODO: For Exposure Time and White Balance Temperature, we need to disable the
+        # automatic mode setting before we can attempt to set them manually
+        # When trying to set those values manually with automatic mode enabled, get an
+        # ErrNo 32 Pipe Error
         control = self.controls[ctrl_name]
         control.value = value
 

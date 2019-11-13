@@ -771,7 +771,7 @@ class Control:
         try:
             self._value = self._uvc_get(uvc_req_code["UVC_GET_CUR"].value)
         except Exception as e:
-            print("Could not get Value. Must be read disabled.")
+            print("Could not get {} value. Must be read disabled.".format(self.display_name))
             print(e)
 
     @property
@@ -782,9 +782,9 @@ class Control:
     def value(self, value):
         try:
             self._uvc_set(value)
-            print("SET SUCCESS")
+            print("SET {} SUCCESSFULLY".format(self.display_name))
         except Exception as e:
-            print("Could not set Value. '%s'."%self.display_name)
+            print("SET {} FAILED".format(self.display_name))
             print(e)
         self.refresh()
 
