@@ -780,12 +780,7 @@ class Control:
 
     @value.setter
     def value(self, value):
-        try:
-            self._uvc_set(value)
-            print("SET {} SUCCESSFULLY".format(self.display_name))
-        except Exception as e:
-            print("SET {} FAILED".format(self.display_name))
-            print(e)
+        self._uvc_set(value)
         self.refresh()
 
 # int uvc_set_ctrl(uvc_device_handle_t *devh,

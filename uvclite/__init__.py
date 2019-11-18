@@ -167,16 +167,25 @@ class UVCDevice(object):
         """
         Set all controls to default values
         """
-        for control in self.controls.values():
-            control.value = control.def_val
+        for ctrl_name, control in self.controls.items():
+            self.set_control(ctrl_name, control.def_val)
    
     def set_control(self, ctrl_name, value):
         # TODO: For Exposure Time and White Balance Temperature, we need to disable the
         # automatic mode setting before we can attempt to set them manually
         # When trying to set those values manually with automatic mode enabled, get an
         # ErrNo 32 Pipe Error
-        control = self.controls[ctrl_name]
-        control.value = value
+        ret = True
+        try:
+            control = self.controls[ctrl_name]
+            control.value = value
+            print("SET {} SUCCESSFULLY".format(ctrl_name))
+        except Exception as e:
+            print("SET {} FAILED".format(ctrl_name))
+            print(e)
+            ret = False
+        return ret
+
 
     def get_control(self, ctrl_name):
         control = self.controls[ctrl_name]
