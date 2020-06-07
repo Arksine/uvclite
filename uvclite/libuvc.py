@@ -20,6 +20,7 @@
 from ctypes import *
 import errno
 from enum import Enum
+import platform
 
 __author__ = 'Eric Callahan'
 
