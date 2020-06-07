@@ -58,9 +58,8 @@ __all__ = [
     'uvc_print_diag'
 ]
 
-# TODO: create function for more robust library loading, that should hopefully
-# work on all platforms
-_libuvc = CDLL('libuvc.so')
+# Load the correct version of the lib on macOS
+_libuvc = CDLL('libuvc.dylib' if platform.system() == "Darwin" else 'libuvc.so')
 
 def buffer_at(address, length):
     """
