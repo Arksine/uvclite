@@ -776,6 +776,7 @@ class Control:
 
     @property
     def value(self):
+        self.refresh()
         return self._value
 
     @value.setter
