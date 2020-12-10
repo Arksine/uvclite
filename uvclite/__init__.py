@@ -44,7 +44,12 @@ class UVCError(IOError):
 
 
 def _check_error(errcode):
+    # print("UVCLITE ERROR INFO:")
     err = libuvc.uvc_error(errcode)
+    # print("err = {}".format(err))
+    # print("dir(err = {}".format(dir(err)))
+    # print("err.name = {}".format(err.name))
+    # print("err.value = {}".format(err.value))
     if err != libuvc.uvc_error.UVC_SUCCESS:
         try:
             strerr = libuvc.uvc_strerror(err.value).decode('utf8')
@@ -270,11 +275,13 @@ class UVCDevice(object):
         if not self._stream_handle_p:
             # open the stream.  Polling mode if callback is not supplied
             self._stream_handle_p = c_void_p()
+            # print("UVCLITE: open stream ctrl")
             ret = libuvc.uvc_stream_open_ctrl(self._handle_p, byref(self._stream_handle_p),
                                               byref(self._stream_ctrl))
 
             _check_error(ret)
 
+            # print("UVCLITE: start stream")
             ret = libuvc.uvc_stream_start(self._stream_handle_p, self._frame_callback,
                                           self._user_id, 0)
             _check_error(ret)
@@ -349,6 +356,14 @@ class UVCDevice(object):
         if self._dev_desc_p:
             libuvc.uvc_free_device_descriptor(self._dev_desc_p)
             self._dev_desc_p = None
+
+    def get_device_bus_number(self):
+        if self._device_p:
+            return libuvc.uvc_get_bus_number(self._device_p)
+
+    def get_device_address(self):
+        if self._device_p:
+            return libuvc.uvc_get_device_address(self._device_p)
 
     def print_diagnostics(self):
         """
@@ -493,6 +508,7 @@ class UVCContext(object):
 
         self._device_list_p = POINTER(c_void_p)()
         ret = libuvc.uvc_get_device_list(self._context_p, byref(self._device_list_p))
+        # print("ret = {}".format(ret))
         _check_error(ret)
 
         return DeviceList(self._device_list_p)
