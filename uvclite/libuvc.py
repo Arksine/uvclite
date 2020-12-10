@@ -714,10 +714,10 @@ class Control:
                 _check_error(ret_buffer_len)
             self.buffer_len = ret_buffer_len
         except Exception as e:
-            print("WARNING: Could not get control length")
-            print("  Exception: {}".format(e))
+            # print("WARNING: Could not get control length")
+            # print("  Exception: {}".format(e))
             if buffer_len is not None:
-                print("  Setting given buffer_len of {}".format(buffer_len))
+                # print("  Setting given buffer_len of {}".format(buffer_len))
                 self.buffer_len = buffer_len
             else:
                 raise
