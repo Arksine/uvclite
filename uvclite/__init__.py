@@ -137,7 +137,7 @@ class UVCDevice(object):
         extension_units = {}
         while extension_unit:
             guidExtensionCode = uint_array_to_GuidCode(extension_unit.contents.guidExtensionCode)
-            print("guidExtensionCode = {}".format(guidExtensionCode))
+            # print("guidExtensionCode = {}".format(guidExtensionCode))
             id_per_unit[guidExtensionCode] = extension_unit.contents.bUnitId
             available_controls_per_unit[guidExtensionCode] = extension_unit.contents.bmControls
             extension_unit = extension_unit.contents.next
@@ -154,7 +154,7 @@ class UVCDevice(object):
 
         for std_ctl in standard_ctrl_units:
             if std_ctl['bit_mask'] & available_controls_per_unit[std_ctl['unit']]:
-                print('Adding "%s" control.'%std_ctl['display_name'])
+                # print('Adding "%s" control.'%std_ctl['display_name'])
                 std_ctl['unit_id'] = id_per_unit[std_ctl['unit']]
                 try:
                     control = libuvc.Control(self._handle_p, **std_ctl)
@@ -184,9 +184,9 @@ class UVCDevice(object):
         try:
             control = self.controls[ctrl_name]
             control.value = value
-            print("SET {} SUCCESSFULLY".format(ctrl_name))
+            # print("SET {} SUCCESSFULLY".format(ctrl_name))
         except Exception as e:
-            print("SET {} FAILED".format(ctrl_name))
+            # print("SET {} FAILED".format(ctrl_name))
             print(e)
             ret = False
         return ret
