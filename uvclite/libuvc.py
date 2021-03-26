@@ -22,6 +22,10 @@ import sys
 import errno
 from enum import Enum
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 __author__ = 'Eric Callahan'
 
 # __all__ attribtue only includes basic functionality needed for uvclite.
@@ -727,7 +731,7 @@ class Control:
         self.min_val = min_val if min_val != None else self._uvc_get(uvc_req_code["UVC_GET_MIN"].value)
         self.max_val = max_val if max_val != None else self._uvc_get(uvc_req_code["UVC_GET_MAX"].value)
         if self.min_val > self.max_val:
-            print("WARNING! min > max")
+            logger.warning("WARNING! min > max")
             self.min_val = -1*self.max_val
         self.step    = step    if step    != None else self._uvc_get(uvc_req_code["UVC_GET_RES"].value)
         self.def_val = def_val if def_val != None else self._uvc_get(uvc_req_code["UVC_GET_DEF"].value)
@@ -771,8 +775,8 @@ class Control:
         try:
             self._value = self._uvc_get(uvc_req_code["UVC_GET_CUR"].value)
         except Exception as e:
-            print("Could not get {} value. Must be read disabled.".format(self.display_name))
-            print(e)
+            logger.error("Could not get {} value. Must be read disabled.".format(self.display_name))
+            logger.error(e)
 
     @property
     def value(self):
