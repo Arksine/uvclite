@@ -21,6 +21,7 @@
 from ctypes import byref, POINTER, c_void_p
 import sys
 from . import libuvc
+from .standard_control_units import standard_ctrl_units
 if sys.version[0] == 2:
     from builtins import range
 
@@ -43,7 +44,12 @@ class UVCError(IOError):
 
 
 def _check_error(errcode):
+    # print("UVCLITE ERROR INFO:")
     err = libuvc.uvc_error(errcode)
+    # print("err = {}".format(err))
+    # print("dir(err = {}".format(dir(err)))
+    # print("err.name = {}".format(err.name))
+    # print("err.value = {}".format(err.value))
     if err != libuvc.uvc_error.UVC_SUCCESS:
         try:
             strerr = libuvc.uvc_strerror(err.value).decode('utf8')
@@ -75,6 +81,13 @@ class UVCFrame(object):
         self.data = libuvc.buffer_at(self.frame.data, self.size)
 
 
+def uint_array_to_GuidCode(u):
+    s = ''
+    for x in range(16):
+        s += "{0:0{1}x}".format(u[x],2) # map int to rwo digit hex without "0x" prefix.
+    return '%s%s%s%s%s%s%s%s-%s%s%s%s-%s%s%s%s-%s%s%s%s-%s%s%s%s%s%s%s%s%s%s%s%s'%tuple(s)
+
+
 class UVCDevice(object):
     """
     Represents a UVC device.  To make things less complex
@@ -93,6 +106,7 @@ class UVCDevice(object):
         self._format_set = False
         self._frame_callback = libuvc.uvc_null_frame_callback
         self._user_id = None
+        self.controls = {}
 
     def open(self):
         """
@@ -104,7 +118,83 @@ class UVCDevice(object):
 
             ret = libuvc.uvc_open(self._device_p, byref(self._handle_p))
             _check_error(ret)
+            self._enumerate_controls()
             self._is_open = True
+
+    def _enumerate_controls(self):
+        """
+        Build out the self.controls list containing all control objects for this camera
+        """
+
+        input_terminal = libuvc.uvc_get_input_terminals(self._handle_p)
+        # cdef uvc.uvc_output_terminal_t  *output_terminal = uvc.uvc_get_output_terminals(self._handle_p)
+        processing_unit =  libuvc.uvc_get_processing_units(self._handle_p)
+        extension_unit = libuvc.uvc_get_extension_units(self._handle_p)
+        
+
+        available_controls_per_unit = {}
+        id_per_unit = {}
+        extension_units = {}
+        while extension_unit:
+            guidExtensionCode = uint_array_to_GuidCode(extension_unit.contents.guidExtensionCode)
+            # print("guidExtensionCode = {}".format(guidExtensionCode))
+            id_per_unit[guidExtensionCode] = extension_unit.contents.bUnitId
+            available_controls_per_unit[guidExtensionCode] = extension_unit.contents.bmControls
+            extension_unit = extension_unit.contents.next
+
+        while input_terminal:
+            available_controls_per_unit['input_terminal'] = input_terminal.contents.bmControls
+            id_per_unit['input_terminal'] = input_terminal.contents.bTerminalId
+            input_terminal = input_terminal.contents.next
+
+        while processing_unit:
+            available_controls_per_unit['processing_unit'] = processing_unit.contents.bmControls
+            id_per_unit['processing_unit'] = processing_unit.contents.bUnitId
+            processing_unit = processing_unit.contents.next
+
+        for std_ctl in standard_ctrl_units:
+            if std_ctl['bit_mask'] & available_controls_per_unit[std_ctl['unit']]:
+                # print('Adding "%s" control.'%std_ctl['display_name'])
+                std_ctl['unit_id'] = id_per_unit[std_ctl['unit']]
+                try:
+                    control = libuvc.Control(self._handle_p, **std_ctl)
+                except Exception as e:
+                    print("Could not init '%s'! Error: %s" %(std_ctl['display_name'],e))
+                    raise
+                else:
+                    self.controls[control.display_name] = control
+
+    def print_controls(self):
+        for c in self.controls.values():
+            print(c)
+
+    def set_control_defaults(self):
+        """
+        Set all controls to default values
+        """
+        for ctrl_name, control in self.controls.items():
+            self.set_control(ctrl_name, control.def_val)
+   
+    def set_control(self, ctrl_name, value):
+        # TODO: For Exposure Time and White Balance Temperature, we need to disable the
+        # automatic mode setting before we can attempt to set them manually
+        # When trying to set those values manually with automatic mode enabled, get an
+        # ErrNo 32 Pipe Error
+        ret = True
+        try:
+            control = self.controls[ctrl_name]
+            control.value = value
+            # print("SET {} SUCCESSFULLY".format(ctrl_name))
+        except Exception as e:
+            # print("SET {} FAILED".format(ctrl_name))
+            print(e)
+            ret = False
+        return ret
+
+
+    def get_control(self, ctrl_name):
+        control = self.controls[ctrl_name]
+        return control.value
 
     def close(self):
         """
@@ -185,11 +275,13 @@ class UVCDevice(object):
         if not self._stream_handle_p:
             # open the stream.  Polling mode if callback is not supplied
             self._stream_handle_p = c_void_p()
+            # print("UVCLITE: open stream ctrl")
             ret = libuvc.uvc_stream_open_ctrl(self._handle_p, byref(self._stream_handle_p),
                                               byref(self._stream_ctrl))
 
             _check_error(ret)
 
+            # print("UVCLITE: start stream")
             ret = libuvc.uvc_stream_start(self._stream_handle_p, self._frame_callback,
                                           self._user_id, 0)
             _check_error(ret)
@@ -264,6 +356,14 @@ class UVCDevice(object):
         if self._dev_desc_p:
             libuvc.uvc_free_device_descriptor(self._dev_desc_p)
             self._dev_desc_p = None
+
+    def get_device_bus_number(self):
+        if self._device_p:
+            return libuvc.uvc_get_bus_number(self._device_p)
+
+    def get_device_address(self):
+        if self._device_p:
+            return libuvc.uvc_get_device_address(self._device_p)
 
     def print_diagnostics(self):
         """
@@ -408,6 +508,7 @@ class UVCContext(object):
 
         self._device_list_p = POINTER(c_void_p)()
         ret = libuvc.uvc_get_device_list(self._context_p, byref(self._device_list_p))
+        # print("ret = {}".format(ret))
         _check_error(ret)
 
         return DeviceList(self._device_list_p)

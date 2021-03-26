@@ -18,8 +18,13 @@
 # pylint: disable=W0511,W0622,W0613,W0603,R0902,C0103,W0614,W0401,W0212,R0903,C0111
 
 from ctypes import *
+import sys
 import errno
 from enum import Enum
+
+import logging
+
+logger = logging.getLogger(__name__)
 
 __author__ = 'Eric Callahan'
 
@@ -61,6 +66,23 @@ __all__ = [
 # TODO: create function for more robust library loading, that should hopefully
 # work on all platforms
 _libuvc = CDLL('libuvc.so')
+
+class UVCError(IOError):
+    """
+    Exception wrapper for libuvc error codes
+    """
+    def __init__(self, strerror, errnum=None):
+        IOError.__init__(self, strerror, errnum)
+
+def _check_error(errcode):
+    err = uvc_error(errcode)
+    if err != uvc_error.UVC_SUCCESS:
+        try:
+            strerr = uvc_strerror(err.value).decode('utf8')
+        except AttributeError:
+            strerr = str_error_map[err]
+        errnum = libuvc_errno_map[err]
+        raise UVCError(strerr, errnum)
 
 def buffer_at(address, length):
     """
@@ -347,7 +369,11 @@ class uvc_extension_unit(Structure):
 uvc_extension_unit_p = POINTER(uvc_extension_unit)
 uvc_extension_unit._fields_ = [('prev', uvc_extension_unit_p),
                                ('next', uvc_extension_unit_p),
-                               ('bUnitId', c_uint8)]
+                               ('bUnitId', c_uint8),
+                               # this is how you declare ctypes arrays
+                               # https://docs.python.org/3/library/ctypes.html#arrays
+                               ('guidExtensionCode', c_uint8 * 16), 
+                               ('bmControls', c_uint64)]
 
 # enum uvc_status_class
 class uvc_status_class(Enum):
@@ -524,6 +550,15 @@ uvc_unref_device.restype = None
 # const uvc_output_terminal_t *uvc_get_output_terminals(uvc_device_handle_t *devh);
 # const uvc_processing_unit_t *uvc_get_processing_units(uvc_device_handle_t *devh);
 # const uvc_extension_unit_t *uvc_get_extension_units(uvc_device_handle_t *devh);
+uvc_get_input_terminals = _libuvc.uvc_get_input_terminals
+uvc_get_input_terminals.argtypes = [c_void_p]
+uvc_get_input_terminals.restype = uvc_input_terminal_p
+uvc_get_processing_units = _libuvc.uvc_get_processing_units
+uvc_get_processing_units.argtypes = [c_void_p]
+uvc_get_processing_units.restype = uvc_processing_unit_p
+uvc_get_extension_units = _libuvc.uvc_get_extension_units
+uvc_get_extension_units.argtypes = [c_void_p]
+uvc_get_extension_units.restype = uvc_extension_unit_p
 
 # uvc_error_t uvc_get_stream_ctrl_format_size(uvc_device_handle_t *devh,
 #                                             uvc_stream_ctrl_t *ctrl,
@@ -627,7 +662,7 @@ uvc_stream_close.restype = None
 
 # int uvc_get_ctrl_len(uvc_device_handle_t *devh, uint8_t unit, uint8_t ctrl);
 uvc_get_ctrl_len = _libuvc.uvc_get_ctrl_len
-uvc_get_ctrl_len.argtypes = [c_void_p, c_uint8, c_uint]
+uvc_get_ctrl_len.argtypes = [c_void_p, c_uint8, c_uint8]
 
 # int uvc_get_ctrl(uvc_device_handle_t *devh,
 #                  uint8_t unit,
@@ -644,6 +679,114 @@ uvc_get_ctrl.argtypes = [
     c_int,
     c_int
 ]
+
+class Control:
+
+    def __init__(
+            self,
+            device_handle,
+            unit_id,
+            display_name,
+            unit,
+            control_id,
+            offset,
+            data_len,
+            bit_mask,
+            d_type,
+            doc=None,
+            buffer_len=None,
+            min_val=None,
+            max_val=None,
+            step=None,
+            def_val=None
+        ):
+
+        self.devh = device_handle
+        self.display_name = display_name
+        self.unit_id = unit_id
+        self.unit = unit
+        self.control_id = control_id
+        self.offset = offset
+        self.data_len = data_len
+        self.bit_mask = bit_mask
+        self.d_type = d_type
+        self.doc = doc
+
+        try:
+            ret_buffer_len = uvc_get_ctrl_len(self.devh, self.unit_id, self.control_id)
+            if ret_buffer_len < 1:
+                _check_error(ret_buffer_len)
+            self.buffer_len = ret_buffer_len
+        except Exception as e:
+            # print("WARNING: Could not get control length")
+            # print("  Exception: {}".format(e))
+            if buffer_len is not None:
+                # print("  Setting given buffer_len of {}".format(buffer_len))
+                self.buffer_len = buffer_len
+            else:
+                raise
+
+        self.info_bit_mask = self._uvc_get(uvc_req_code["UVC_GET_INFO"].value)
+        self._value = self._uvc_get(uvc_req_code["UVC_GET_CUR"].value)
+        self.min_val = min_val if min_val != None else self._uvc_get(uvc_req_code["UVC_GET_MIN"].value)
+        self.max_val = max_val if max_val != None else self._uvc_get(uvc_req_code["UVC_GET_MAX"].value)
+        if self.min_val > self.max_val:
+            logger.warning("WARNING! min > max")
+            self.min_val = -1*self.max_val
+        self.step    = step    if step    != None else self._uvc_get(uvc_req_code["UVC_GET_RES"].value)
+        self.def_val = def_val if def_val != None else self._uvc_get(uvc_req_code["UVC_GET_DEF"].value)
+
+        # I think if step = 0 then the control is a continuous function?
+        if self.d_type == int and self.step != 0 and len(range(self.min_val,self.max_val+1,self.step)) == 2:
+            self.d_type = bool
+        #we could filter out unsupported entries but device dont always implement this correctly.
+        #if type(self.d_type) == dict:
+        #    possible_vals = range(self.min_val,self.max_val+1,self.step)
+        #    print possible_vals
+        #    filtered_entries = {}
+        #    for key,val in self.d_type.iteritems():
+        #        if val in possible_vals:
+        #            filtered_entries[key] = val
+        #    self.d_type = filtered_entries
+
+    def __str__(self):
+        return "%s"%self.display_name \
+        + '\n\t value: %s'%self._value \
+        + '\n\t min: %s'%self.min_val \
+        + '\n\t max: %s'%self.max_val \
+        + '\n\t step: %s'%self.step \
+        + '\n\t default: %s'%self.def_val
+
+    def _uvc_get(self, req_code):
+        data = bytes(12)
+        ret = uvc_get_ctrl(self.devh, self.unit_id, self.control_id, data, self.buffer_len, req_code)
+        if ret < 1:
+            _check_error(ret)
+        value = int.from_bytes(data[0:ret], sys.byteorder, signed=True)
+        return value
+
+    def _uvc_set(self, value):
+        data = value.to_bytes(self.buffer_len, sys.byteorder, signed=True)
+        ret =  uvc_set_ctrl(self.devh, self.unit_id, self.control_id, data, self.buffer_len)
+        if ret <= 0: #== self.buffer_len
+            _check_error(ret)
+
+    def refresh(self):
+        try:
+            self._value = self._uvc_get(uvc_req_code["UVC_GET_CUR"].value)
+        except Exception as e:
+            logger.error("Could not get {} value. Must be read disabled.".format(self.display_name))
+            logger.error(e)
+
+    @property
+    def value(self):
+        self.refresh()
+        return self._value
+
+    @value.setter
+    def value(self, value):
+        self._uvc_set(value)
+        self.refresh()
 
 # int uvc_set_ctrl(uvc_device_handle_t *devh,
 #                  uint8_t unit,
